@@ -11,26 +11,24 @@
   copy: src=epel.repo.j2 dest=/etc/yum.repos.d/epel.repo
 
 - name: Create the GPG key for EPEL
-  copy: src=RPM-GPG-KEY-EPEL-6 dest=/etc/pki/rpm-gpg
+  copy: src=RPM-GPG-KEY-EPEL-7 dest=/etc/pki/rpm-gpg
+
+- name: Create SELinux Policy
+  copy: src=mongodb_cgroup_memory.te dest:
 
 - name: Create the mongod user
   user: name=mongod comment="MongoD"
-
-- name: Create the data directory for the namenode metadata
-  file: path={{ mongodb_datadir_prefix }} owner=mongod group=mongod state=directory
 
 - name: Install the mongodb package
   yum: 
     name:
       - mongodb-org
-      - libselinux-python
-      - bc
-      - python-pip
-    state: installed
+      - checkpolicy
+    state: present
 
-- name: Install the latest pymongo package
-  pip: name=pymongo state=latest use_mirrors=no
-
-- name: Create the iptables file
-  template: src=iptables.j2 dest=/etc/sysconfig/iptables
-  notify: restart iptables
+- name: Update SELinux Policies
+  shell:
+    cmd: checkmodule -M -m -o mongodb_cgroup_memory.mod mongodb_cgroup_memory.te /
+         semodule_package -o mongodb_cgroup_memory.pp -m mongodb_cgroup_memory.mod /
+         sudo semodule -i mongodb_cgroup_memory.pp
+    chdir: 
